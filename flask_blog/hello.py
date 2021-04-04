@@ -14,7 +14,7 @@ def destinations():
     print_string =\
     """
     Locations:<br> 
-<p style="margin-left: 20px">US Virgin Islands</p>
+<p style="margin-left: 20px">US Virgin Island</p>
 <p style="margin-left: 20px">Puerto Rico</p>
 <p style="margin-left: 20px">Tahoe</p>
 <p style="margin-left: 20px">San Diego</p>

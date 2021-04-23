@@ -2,6 +2,10 @@ from flask import Flask, render_template
 
 app = Flask(__name__)
 
+@app.route('/')
+def front_page():
+
+    return render_template('template.html')
 
 @app.route('/trip_roster')
 def trip_roster():

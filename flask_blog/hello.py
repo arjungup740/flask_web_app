@@ -8,7 +8,7 @@ def index():
 
     return render_template('index.html')
 
-@app.route('/trip_destinations')
+@app.route('/destinations')
 def destinations():
 
     print_string =\

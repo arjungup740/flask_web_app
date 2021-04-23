@@ -18,5 +18,6 @@ def destinations():
 <p style="margin-left: 20px">Puerto Rico</p>
 <p style="margin-left: 20px">Tahoe</p>
 <p style="margin-left: 20px">Yosemite</p>
+<p style="margin-left: 20px"><a href="{{ url_for('trip_roster') }}">trip roster</a></p>
     """
     return print_string

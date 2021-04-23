@@ -9,6 +9,6 @@ def index():
     return render_template('index.html')
 
 @app.route('/trip_destinations')
-def destinations():
+def trip_destinations():
 
     return render_template('trip_destinations.html')

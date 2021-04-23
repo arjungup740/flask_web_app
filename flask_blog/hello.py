@@ -4,9 +4,9 @@ app = Flask(__name__)
 
 
 @app.route('/trip_roster')
-def index():
+def trip_roster():
 
-    return render_template('index.html')
+    return render_template('trip_roster.html')
 
 @app.route('/trip_destinations')
 def trip_destinations():

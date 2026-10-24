@@ -12,6 +12,7 @@ Writes data/films.csv and data/films.md.
 """
 import argparse
 import csv
+import hashlib
 import re
 import time
 from pathlib import Path
@@ -23,18 +24,30 @@ from bs4 import BeautifulSoup
 LIST_URL = "https://en.wikipedia.org/wiki/List_of_highest-grossing_Hindi_films"
 HEADERS = {"User-Agent": "BollywoodLyricsNLP/0.1 (https://github.com/arjungup740/eleventy-base-blog)"}
 DATA_DIR = Path(__file__).parent / "data"
+CACHE_DIR = Path(__file__).parent / ".cache"
 
 
 def get_soup(url):
-    resp = requests.get(url, headers=HEADERS, timeout=30)
+    """Fetch a page (cached on disk so reruns don't re-hit Wikipedia), backing off on 429s."""
+    cached = CACHE_DIR / (hashlib.sha1(url.encode()).hexdigest() + ".html")
+    if cached.exists():
+        return BeautifulSoup(cached.read_text(encoding="utf-8"), "lxml")
+    for attempt in range(5):
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        if resp.status_code != 429:
+            break
+        time.sleep(int(resp.headers.get("Retry-After", 0)) or 10 * 2 ** attempt)
     resp.raise_for_status()
-    time.sleep(1)  # be polite to Wikipedia
+    time.sleep(2)  # be polite to Wikipedia
+    CACHE_DIR.mkdir(exist_ok=True)
+    cached.write_text(resp.text, encoding="utf-8")
     return BeautifulSoup(resp.text, "lxml")
 
 
 def clean(text):
     text = re.sub(r"\[[^\]]*\]", "", text)  # drop footnote markers like [5] or [b]
-    return " ".join(text.split())
+    text = " ".join(text.split())
+    return re.sub(r"\(\s+", "(", re.sub(r"\s+([,)])", r"\1", text))
 
 
 def parse_crore(gross):

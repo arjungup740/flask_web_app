@@ -1,3 +1,4 @@
 .cache/
 data/lyrics.jsonl
 data/lyrics/
+data/language_tags/

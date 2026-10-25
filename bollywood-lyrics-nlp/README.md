@@ -16,7 +16,12 @@ Pipeline:
    73/79 songs have lyrics: 55 in original script (44 Devanagari, 9 Gurmukhi, 2 Arabic/Urdu), 62 romanized, 44 both.
    `lyrics.jsonl` and `lyrics/` are gitignored because the lyrics are copyrighted; see [Rebuilding the lyrics](#rebuilding-the-lyrics)
    (`lyrics_coverage.csv` records which source and match each song used, without the text).
-4. NLP: language mix (Hindi/Urdu/Punjabi/English), themes, sentiment (to do)
+4. `tag_languages.py`: Claude tags the language of every word of every song (Hindi/Urdu, Punjabi, English,
+   other named languages, plus vocables and names, which are left out of the shares), following
+   `language_tagging_guidelines.md` → `data/song_languages.csv`, one row per song: % of words in each language,
+   counted as sung (repeated choruses included). For songs in original script it also gives the % of lines and
+   words written in Gurmukhi, a tagger-free cross-check. See [Running the language tagging](#running-the-language-tagging).
+5. Themes, sentiment (to do)
 
 ## Rebuilding the lyrics
 
@@ -40,6 +45,26 @@ python scrape_lyrics.py
   those songs are logged as `lrclib error ...` and come out without lyrics. Rerun later; cached pages aren't re-fetched,
   but failed ones are.
 - To force fresh downloads (e.g. to pick up newly published lyrics), delete `.cache/` first.
+
+## Running the language tagging
+
+Needs the lyrics (above) and an Anthropic API key:
+
+```bash
+export ANTHROPIC_API_KEY=...        # from https://platform.claude.com
+python tag_languages.py tag         # tags every song with lyrics that isn't tagged yet
+python tag_languages.py summarize   # → data/song_languages.csv
+```
+
+- Tagging all 73 songs takes roughly 20–30 minutes (4 songs in parallel) and costs roughly $5–15 with
+  Claude Opus 5.5. Reruns skip songs that are already tagged, so an interrupted run picks up where it stopped.
+- `tag "Chaleya" "Faraatta"` tags just those songs; `--force` re-tags (e.g. after changing the guidelines);
+  `prepare "Chaleya"` writes the numbered lines that would be sent, without calling the API.
+- The tagger has to return exactly one label per word. If it miscounts a line it's retried twice with the exact
+  mismatches; if a line is still off, that line is left out of the song's shares and `lines_left_out` says how many.
+- Per-word tags go to `data/language_tags/` (gitignored, since they contain the lyrics). `song_languages.csv`
+  holds only percentages, so it's committed.
+- The tagging rules live in `language_tagging_guidelines.md`; edit that file to change them, then rerun with `--force`.
 
 ### Rebuilding everything from scratch
 

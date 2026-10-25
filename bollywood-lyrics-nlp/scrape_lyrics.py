@@ -11,12 +11,15 @@ Whichever script a source returns is detected from the text itself, so a romaniz
 hit fills the romanized slot if LyricsMint has nothing.
 
 Usage: python scrape_lyrics.py
-Writes data/lyrics.jsonl (full lyrics, gitignored: they're copyrighted) and
-data/lyrics_coverage.csv (what was found where, no lyrics text).
+Writes (full lyrics are gitignored because they're copyrighted):
+  data/lyrics.jsonl: one JSON record per song with both versions, for analysis
+  data/lyrics/<NN_film>/<NN_song>.original.txt / .romanized.txt: the same lyrics, for browsing
+  data/lyrics_coverage.csv: what was found where and the file paths, no lyrics text (committed)
 """
 import csv
 import json
 import re
+import shutil
 import unicodedata
 from difflib import SequenceMatcher
 from urllib.parse import urljoin
@@ -147,6 +150,28 @@ def mint_lyrics(url):
     return "\n\n".join(s for s in stanzas if s)
 
 
+def slug(text):
+    return re.sub(r"[^A-Za-z0-9]+", "_", norm(text)).strip("_").title() or "Untitled"
+
+
+def write_lyrics_folders(records):
+    """data/lyrics/01_Dangal/03_Gilehriyaan.original.txt, numbered like films.csv and songs.csv."""
+    root = DATA_DIR / "lyrics"
+    shutil.rmtree(root, ignore_errors=True)  # rebuilt from scratch so renamed songs leave no strays
+    track_counts = {}
+    for record in records:
+        track = track_counts[record["film"]] = track_counts.get(record["film"], 0) + 1
+        film_dir = root / f"{int(record['film_rank']):02d}_{slug(record['film'])}"
+        stem = f"{track:02d}_{slug(record['title'])}"
+        for slot in ("original", "romanized"):
+            record[f"{slot}_file"] = ""
+            if record[f"{slot}_lyrics"]:
+                path = film_dir / f"{stem}.{slot}.txt"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(record[f"{slot}_lyrics"] + "\n", encoding="utf-8")
+                record[f"{slot}_file"] = str(path.relative_to(DATA_DIR))
+
+
 def main():
     with open(DATA_DIR / "songs.csv", encoding="utf-8") as f:
         songs = list(csv.DictReader(f))
@@ -176,6 +201,10 @@ def main():
         print(f"{song['film']} / {song['title']}: "
               f"original={found['original']['script'] if found['original'] else '-'}, "
               f"romanized={'yes' if found['romanized'] else '-'}")
+
+    write_lyrics_folders(records)
+    for record, row in zip(records, coverage):
+        row["original_file"], row["romanized_file"] = record["original_file"], record["romanized_file"]
 
     with open(DATA_DIR / "lyrics.jsonl", "w", encoding="utf-8") as f:
         for record in records:

@@ -10,9 +10,11 @@ Pipeline:
    Keeps the original Hindi album (and deluxe-edition bonus songs). Dubbed albums, background score, instrumentals,
    reprises, remixes and alternate versions are dropped and listed in `data/songs_skipped.csv` with the reason.
 3. `scrape_lyrics.py`: lyrics for each song in original script (from [LRCLIB](https://lrclib.net)) and romanized
-   (from [LyricsMint](https://lyricsmint.com), or LRCLIB when it has a romanized copy) → `data/lyrics.jsonl`, `data/lyrics_coverage.csv`.
+   (from [LyricsMint](https://lyricsmint.com), or LRCLIB when it has a romanized copy) → `data/lyrics.jsonl` (one record per song, for analysis),
+   `data/lyrics/<NN_film>/<NN_song>.original.txt` / `.romanized.txt` (for browsing; numbered as in `films.csv` and `songs.md`),
+   and `data/lyrics_coverage.csv`.
    73/79 songs have lyrics: 55 in original script (44 Devanagari, 9 Gurmukhi, 2 Arabic/Urdu), 62 romanized, 44 both.
-   `lyrics.jsonl` is gitignored because the lyrics are copyrighted; rerun the script to regenerate it
+   `lyrics.jsonl` and `lyrics/` are gitignored because the lyrics are copyrighted; rerun the script to regenerate it
    (`lyrics_coverage.csv` records which source and match each song used, without the text).
 4. NLP: language mix (Hindi/Urdu/Punjabi/English), themes, sentiment (to do)
 

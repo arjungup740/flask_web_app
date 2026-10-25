@@ -16,11 +16,13 @@ Pipeline:
    73/79 songs have lyrics: 55 in original script (44 Devanagari, 9 Gurmukhi, 2 Arabic/Urdu), 62 romanized, 44 both.
    `lyrics.jsonl` and `lyrics/` are gitignored because the lyrics are copyrighted; see [Rebuilding the lyrics](#rebuilding-the-lyrics)
    (`lyrics_coverage.csv` records which source and match each song used, without the text).
-4. `tag_languages.py`: Claude tags the language of every word of every song (Hindi/Urdu, Punjabi, English,
+4. `tag_languages.py`: tags the language of every word of every song (Hindi/Urdu, Punjabi, English,
    other named languages, plus vocables and names, which are left out of the shares), following
-   `language_tagging_guidelines.md` → `data/song_languages.csv`, one row per song: % of words in each language,
-   counted as sung (repeated choruses included). For songs in original script it also gives the % of lines and
-   words written in Gurmukhi, a tagger-free cross-check. See [Running the language tagging](#running-the-language-tagging).
+   `language_tagging_guidelines.md`, with either of two taggers: Claude, or TypeSafe's Jev (one multiple-choice
+   question per word, with probabilities and a confidence). → `data/song_languages.csv` (Claude) /
+   `data/song_languages_jev.csv` (Jev), one row per song: % of words in each language, counted as sung
+   (repeated choruses included). For songs in original script it also gives the % of lines and words written
+   in Gurmukhi, a tagger-free cross-check. See [Running the language tagging](#running-the-language-tagging).
 5. Themes, sentiment (to do)
 
 ## Rebuilding the lyrics
@@ -48,23 +50,40 @@ python scrape_lyrics.py
 
 ## Running the language tagging
 
-Needs the lyrics (above) and an Anthropic API key:
+Needs the lyrics (above) and an API key for the tagger you use. There are two:
+
+| | Claude (default) | Jev (`--backend jev`) |
+|---|---|---|
+| Key | `ANTHROPIC_API_KEY` ([platform.claude.com](https://platform.claude.com)) | `TYPESAFE_API_KEY` ([console.typesafe.ai](https://console.typesafe.ai)) |
+| How | Reads the whole song, returns one label per word | One multiple-choice question per word, with the whole song as context; returns a probability for every language and a confidence |
+| Cost, all 73 songs | roughly $5–15 | well under $1 |
+| Output | `data/song_languages.csv` | `data/song_languages_jev.csv`, which adds probability-weighted shares (`soft_pct_*`: a word that's 90% Punjabi counts as 0.9) and `low_confidence_words` |
 
 ```bash
-export ANTHROPIC_API_KEY=...        # from https://platform.claude.com
-python tag_languages.py tag         # tags every song with lyrics that isn't tagged yet
-python tag_languages.py summarize   # → data/song_languages.csv
+export ANTHROPIC_API_KEY=...                  # and/or TYPESAFE_API_KEY=...
+python tag_languages.py tag                   # Claude: tags every song with lyrics that isn't tagged yet
+python tag_languages.py summarize             # → data/song_languages.csv
+python tag_languages.py tag --backend jev     # Jev
+python tag_languages.py summarize --backend jev
+python tag_languages.py compare               # word-by-word agreement on songs both have tagged
 ```
 
-- Tagging all 73 songs takes roughly 20–30 minutes (4 songs in parallel) and costs roughly $5–15 with
-  Claude Opus 5.5. Reruns skip songs that are already tagged, so an interrupted run picks up where it stopped.
-- `tag "Chaleya" "Faraatta"` tags just those songs; `--force` re-tags (e.g. after changing the guidelines);
-  `prepare "Chaleya"` writes the numbered lines that would be sent, without calling the API.
-- The tagger has to return exactly one label per word. If it miscounts a line it's retried twice with the exact
+- Reruns skip songs that backend has already tagged, so an interrupted run picks up where it stopped.
+  `tag "Chaleya" "Faraatta"` tags just those songs; `--force` re-tags (e.g. after changing the guidelines);
+  `prepare "Chaleya"` writes the numbered lines that would be sent, without calling an API.
+- Claude has to return exactly one label per word. If it miscounts a line it's retried twice with the exact
   mismatches; if a line is still off, that line is left out of the song's shares and `lines_left_out` says how many.
-- Per-word tags go to `data/language_tags/` (gitignored, since they contain the lyrics). `song_languages.csv`
-  holds only percentages, so it's committed.
-- The tagging rules live in `language_tagging_guidelines.md`; edit that file to change them, then rerun with `--force`.
+  Jev can't miscount: each word is its own question.
+- Jev's docs say English is its strongest language, so check it before trusting it here: tag a few songs with
+  both backends and run `compare`. It writes `data/tagger_comparison.csv` with each song's agreement, split by
+  whether Jev was confident (≥ 0.5), and prints the most common disagreements.
+- Jev requests carry the whole song plus a batch of word questions (80 by default); a batch over Jev's context
+  limit is split in half automatically. The answer options are shuffled per word, since Jev leans toward the first
+  option listed. The model is pinned to `jev-1.14.0` so confidences stay comparable between runs.
+- Per-word tags go to `data/language_tags/output_claude/` and `output_jev/` (gitignored, since they contain the
+  lyrics). The CSVs hold only numbers, so they're committed.
+- The tagging rules live in `language_tagging_guidelines.md`. Claude gets that file whole; Jev gets a condensed
+  version in `JEV_CRITERIA` in `tag_languages.py`, so change both. Then rerun with `--force`.
 
 ### Rebuilding everything from scratch
 
